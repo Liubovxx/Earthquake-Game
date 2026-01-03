@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Earthquake Game</title>
+<style>
+    body { margin: 0; overflow: hidden; background: #eee; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+canvas.width = 800;
+canvas.height = 600;
+
+
+let kitten = { x: 100, y: 450, r: 25 };
+
+
+const table = { x: 150, y: 350, w: 250, h: 120, safe: { x: 180, y: 420, w: 190, h: 50 } };
+const bed = { x: 450, y: 300, w: 300, h: 150, safe: { x: 480, y: 450, w: 240, h: 50 } };
+
+// game
+let state = "start"; // start, running, win, lose
+let timer = 15;
+let phaseTime = 0;
+let shake = 0;
+let message = "";
+
+let mouseDown = false;
+let dragging = false;
+
+canvas.addEventListener("mousedown", e => {
+    mouseDown = true;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const dx = mx - kitten.x;
+    const dy = my - kitten.y;
+    if (Math.sqrt(dx*dx + dy*dy) < kitten.r) dragging = true;
+});
+
+canvas.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    const rect = canvas.getBoundingClientRect();
+    kitten.x = e.clientX - rect.left;
+    kitten.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener("mouseup", () => { mouseDown = false; dragging = false; });
+
+//check if kitten in the safe zone?
+function isInSafeZone() {
+    return (
+        kitten.x > table.safe.x && kitten.x < table.safe.x + table.safe.w &&
+        kitten.y > table.safe.y && kitten.y < table.safe.y + table.safe.h
+    ) || (
+        kitten.x > bed.safe.x && kitten.x < bed.safe.x + bed.safe.w &&
+        kitten.y > bed.safe.y && kitten.y < bed.safe.y + bed.safe.h
+    );
+}
+
+function drawKitten() {
+    // body
+    ctx.fillStyle = "pink";
+    ctx.beginPath();
+    ctx.arc(kitten.x, kitten.y, kitten.r, 0, Math.PI*2);
+    ctx.fill();
+
+    // kitten ears
+    ctx.fillStyle = "pink";
+    ctx.beginPath();
+    ctx.moveTo(kitten.x - 15, kitten.y - 20);
+    ctx.lineTo(kitten.x - 5, kitten.y - 35);
+    ctx.lineTo(kitten.x, kitten.y - 20);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(kitten.x + 15, kitten.y - 20);
+    ctx.lineTo(kitten.x + 5, kitten.y - 35);
+    ctx.lineTo(kitten.x, kitten.y - 20);
+    ctx.fill();
+
+    // kitten face
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(kitten.x - 8, kitten.y - 5, 3, 0, Math.PI*2); 
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(kitten.x + 8, kitten.y - 5, 3, 0, Math.PI*2); 
+    ctx.fill();
+
+    ctx.beginPath(); 
+    ctx.arc(kitten.x, kitten.y + 5, 2, 0, Math.PI*2);
+    ctx.fill();
+
+    // tale
+    ctx.strokeStyle = "pink";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(kitten.x - 10, kitten.y + 10);
+    ctx.quadraticCurveTo(kitten.x - 30, kitten.y + 30, kitten.x - 10, kitten.y + 40);
+    ctx.stroke();
+}
+
+function drawFurniture(obj, color, safeColor) {
+    // furniture colour
+    ctx.fillStyle = color;
+    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+    // Safe zone
+    ctx.fillStyle = safeColor;
+    ctx.fillRect(obj.safe.x, obj.safe.y, obj.safe.w, obj.safe.h);
+    // Оutline
+    ctx.strokeStyle = "black";
+    ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+}
+
+function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // shaking
+    ctx.save();
+    ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+
+    // background
+    ctx.fillStyle = "#eee";
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+
+    // furniture
+    drawFurniture(table, "#8d6e63", "rgba(0,255,0,0.3)");
+    drawFurniture(bed, "#90caf9", "rgba(0,255,0,0.3)");
+
+    // kitten
+    drawKitten();
+
+    ctx.restore();
+
+    // logic
+    phaseTime += 1/60;
+
+if (state === "start") {
+    message = "Get ready!";
+    shake = 5;
+    if (phaseTime > 2) { 
+        state = "running"; 
+        phaseTime = 0; 
+        timer = 15; 
+    }
+} else if (state === "running") {
+    timer -= 1/60;
+    shake = 3;
+    message = "Hide your kitten!";
+    if (timer <= 0) { 
+        state = "drop";   // тут запускаємо DCH sequence
+        phaseTime = 0;
+    }
+} else if (state === "drop") {
+    message = "Drop!";
+    kitten.h = 60;  
+    shake = 10;
+    if (phaseTime > 2) { 
+        state = "cover"; 
+        phaseTime = 0; 
+    }
+} else if (state === "cover") {
+    message = "Cover!";
+    shake = 15;
+    if (phaseTime > 2) { 
+        state = "hold"; 
+        phaseTime = 0; 
+    }
+} else if (state === "hold") {
+    message = "Hold On!";
+    shake = 20;
+    if (phaseTime > 3) { 
+        state = isInSafeZone() ? "win" : "lose"; 
+    }
+} else if (state === "win") {
+    message = "Safe! 🐱";
+    shake = 0;
+} else if (state === "lose") {
+    message = "Oops! Try again 😿";
+    shake = 0;
+}
+
+
+
+    // text with rules of the game
+    ctx.font = "20px Arial";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "black";
+    ctx.fillText("Rules: Drag the kitten to a safe zone (green) before the timer ends.", 20, 30);
+
+    ctx.font = "30px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(message, canvas.width/2, 70);
+
+    if (state === "running") {
+        ctx.font = "50px Arial";
+        ctx.fillText(Math.ceil(timer), canvas.width/2, 120);
+    }
+
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
+
