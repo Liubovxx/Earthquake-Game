@@ -7,7 +7,7 @@ Survive the earthquake to win.
 
 ## Learning Intent
 This game teaches children what to do during an earthquake using the
-"Drop, Cover, Hold On" guidance from DIAS / quakeshake.ie.
+"Drop, Cover, Hold On"
 
 ## Engine
 Custom JavaScript 2D game engine (canvas-based).
